@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汉字字帖分割系统</title>
+    <style>
+        body {
+            /* 保留原有的 body 样式 */
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: #f7f7f7;
+            /* 添加背景图片 */
+            background-image: url("{{ url_for('static', filename='images/bg.jpg') }}");
+            background-size: cover;
+            background-position: center;
+        }
+
+        #image-container {
+            display: flex;
+            justify-content: space-around;
+            width: 80%;
+            margin-top: 20px;
+        }
+        img {
+            max-width: 400px;
+            height: auto;
+        }
+        #logoutButton {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 8px 12px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        #uploadForm {
+            margin-top: 20px;
+        }
+        #fileInput {
+            margin-right: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #uploadForm button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #uploadForm button:hover {
+            background-color: #0056b3;
+        }
+        #cropped-images {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #downloadImagesBtn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #downloadImagesBtn:hover {
+            background-color: #0056b3;
+        }
+        h1 {
+            font-size: 60px; /* 调整字体大小为 28 像素 */
+        }
+    </style>
+</head>
+<body>
+    <button id="logoutButton">退出登录</button>
+
+    <h1>请上传待分割的字帖图片</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="file" id="fileInput">
+        <button type="submit">上传</button>
+    </form>
+    
+    <div id="image-container">
+        <div id="original-image">
+            <h2>原始图片：</h2>
+            <img id="originalImg" src="{{ url_for('static', filename='images/img1.png') }}" alt="Original Image">
+        </div>
+        <div id="result-image">
+            <h2>处理结果：</h2>
+            <img id="resultImg" src="{{ url_for('static', filename='images/img2.png') }}" alt="Processed Result">
+        </div>
+    </div>
+
+    <div id="cropped-images">
+        <h2>分割后的汉字图片：</h2>
+        <p id="segmentedCount">共分割出<span id="count">0</span>张汉字图片</p>
+        <button id="downloadImagesBtn">下载所有汉字图片</button>
+    </div>
+
+    <script>
+        document.getElementById('downloadImagesBtn').addEventListener('click', function() {
+            // 按钮点击后的动态效果示例
+            var button = this;
+
+            // 禁用按钮以防止重复点击
+            button.disabled = true;
+
+            // 添加加载中的文本或图标
+            button.innerHTML = '下载中...';
+
+            // 模拟下载延时（可根据实际情况修改）
+            setTimeout(function() {
+                // 还原按钮状态
+                button.disabled = false;
+                button.innerHTML = '下载所有汉字图片';
+            }, 2000); // 2秒后恢复按钮状态
+
+            // 获取所有分割图像的路径
+            var segmentedImages = document.querySelectorAll('#cropped-images img');
+
+            // 创建一个新的JSZip实例
+            var zip = new JSZip();
+
+            // 循环处理每个分割图像并添加到压缩包中
+            segmentedImages.forEach(function(img, index) {
+                // 提取图像源URL
+                var imgUrl = img.src;
+                // 使用fetch获取图像数据（作为blob）
+                fetch(imgUrl)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        // 将blob添加到压缩包中，使用唯一的文件名
+                        zip.file('segmented_image_' + (index + 1) + '.png', blob);
+                        // 判断是否已经添加了所有图像，若是则生成并提供下载链接
+                        if (index === segmentedImages.length - 1) {
+                            zip.generateAsync({ type: 'blob' })
+                                .then(zipBlob => {
+                                    // 创建一个临时的URL用于下载压缩包
+                                    var zipUrl = URL.createObjectURL(zipBlob);
+                                    // 创建一个隐藏的<a>元素来触发下载
+                                    var downloadLink = document.createElement('a');
+                                    downloadLink.href = zipUrl;
+                                    downloadLink.download = 'segmented_images.zip';
+                                    downloadLink.style.display = 'none';
+                                    document.body.appendChild(downloadLink);
+                                    downloadLink.click();
+                                    // 清理：移除临时的<a>元素和URL对象
+                                    document.body.removeChild(downloadLink);
+                                    URL.revokeObjectURL(zipUrl);
+                                })
+                                .catch(err => {
+                                    console.error('Failed to generate zip:', err);
+                                    alert('压缩包生成失败，请重试。');
+                                });
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to fetch image:', err);
+                        alert('图像下载失败，请重试。');
+                    });
+            });
+        });
+
+        document.getElementById('logoutButton').addEventListener('click', function() {
+            // 弹出确认对话框
+            if (confirm('确定要退出登录吗？')) {
+                // 用户点击了确认按钮
+                fetch('/logout')
+                .then(response => {
+                    if (response.ok) {
+                        // 退出成功，重定向到首页
+                        window.location.href = '/'; 
+                    } else {
+                        throw new Error('退出登录失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('退出登录失败，请重试。');
+                });
+            } else {
+                // 用户点击了取消按钮，不执行任何操作
+                // 可以根据需要添加取消退出后的逻辑
+            }
+        });
+
+
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData();
+            formData.append('file', document.getElementById('fileInput').files[0]);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('originalImg').src = '/static/uploads/' + document.getElementById('fileInput').files[0].name;
+                    document.getElementById('resultImg').src = '/result/temp_output.jpg' + '?' + new Date().getTime();
+
+                    var imagesPerRow = 15;
+                    var currentRow = null;
+
+                    var croppedImagesContainer = document.getElementById('cropped-images');
+                    croppedImagesContainer.querySelectorAll('img').forEach(img => img.remove());
+
+                    var segmentedCount = data.cropped_files_list.length;
+                    document.getElementById('count').textContent = segmentedCount;
+
+                    data.cropped_files_list.forEach(function(croppedImagePath, index) {
+                        // console.log(data.cropped_files_list)
+                        var imgElement = document.createElement('img');
+                        let extractedPath = croppedImagePath.substring(croppedImagePath.indexOf('static'));
+                        imgElement.src = extractedPath + '?' + new Date().getTime();
+                        imgElement.style.maxWidth = '100px';
+                        imgElement.style.margin = '5px';
+
+                        if (index % imagesPerRow === 0) {
+                            currentRow = document.createElement('div');
+                            currentRow.classList.add('image-row');
+                            croppedImagesContainer.appendChild(currentRow);
+                        }
+
+                        currentRow.appendChild(imgElement);
+                    });
+                } else {
+                    alert('预测失败，请重试：' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('预测失败，请重试。');
+            });
+        });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+
+
+</body>
+</html>

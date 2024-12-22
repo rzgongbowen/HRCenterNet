@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片预测</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+        #image-container {
+            display: flex;
+            justify-content: space-around;
+            width: 80%;
+            margin-top: 20px;
+        }
+        img {
+            max-width: 400px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>上传图片进行预测</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="file" id="fileInput">
+        <button type="submit">上传</button>
+    </form>
+    <div id="image-container">
+        <div id="original-image">
+            <h2>原始图片</h2>
+            <img id="originalImg" src="" alt="Original Image">
+        </div>
+        <div id="result-image">
+            <h2>处理结果</h2>
+            <img id="resultImg" src="" alt="Processed Result">
+        </div>
+    </div>
+
+    <!-- 在页面中添加用于显示裁剪后图片的区域 -->
+    <div id="cropped-images">
+        <h2>裁剪后的图片</h2>
+    </div>
+
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData();
+            formData.append('file', document.getElementById('fileInput').files[0]);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('originalImg').src = '/static/uploads/' + document.getElementById('fileInput').files[0].name;
+                    // document.getElementById('resultImg').src = data.result;
+                    document.getElementById('resultImg').src = '/result/temp_output.jpg'+'?' + new Date().getTime();
+
+                    console.log(data)
+                    console.log(data.result)
+                    console.log(data.result)
+
+
+                    // 获取裁剪后的图片列表
+                    var croppedImagesContainer = document.getElementById('cropped-images');
+                    croppedImagesContainer.innerHTML = ''; // 清空容器
+
+                    data.cropped_files_list.forEach(function(croppedImagePath) {
+                        // 创建一个新的 <img> 元素
+                        var imgElement = document.createElement('img');
+                        // imgElement.src = croppedImagePath; // 设置图片路径
+                        // 找到文件名部分的起始位置
+                        let index = croppedImagePath.lastIndexOf('\\');
+
+                        // 提取路径中的子字符串，包括 'static\\cropped_out\\\\181\\181_102.jpg'
+                        let extractedPath = croppedImagePath.substring(croppedImagePath.indexOf('static'));
+
+                        // 输出截取的部分
+                        console.log(extractedPath);  // 输出 'static\\cropped_out\\\\181\\181_102.jpg'
+                        imgElement.src = extractedPath +'?' + new Date().getTime();
+                        console.log(croppedImagePath)
+                        console.log(croppedImagePath)
+                        console.log(croppedImagePath)
+                        imgElement.style.maxWidth = '300px'; // 设置最大宽度
+                        imgElement.style.marginBottom = '20px'; // 设置底部间距
+
+                        // 将图片添加到容器中
+                        croppedImagesContainer.appendChild(imgElement);
+                    });
+                }  else {
+                    alert('预测失败，请重试：' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('预测失败，请重试。');
+            });
+        });
+    </script>
+</body>
+</html>

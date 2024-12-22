@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汉字字帖分割系统</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: #f7f7f7;
+        }
+        #image-container {
+            display: flex;
+            justify-content: space-around;
+            width: 80%;
+            margin-top: 20px;
+        }
+        img {
+            max-width: 400px;
+            height: auto;
+        }
+        #logoutButton {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 8px 12px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        #uploadForm {
+            margin-top: 20px;
+        }
+        #fileInput {
+            margin-right: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #uploadForm button {
+            padding: 8px 12px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #008CBA;
+            color: white;
+        }
+        #cropped-images {
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <button id="logoutButton">退出登录</button>
+
+    <h1>请上传待分割的字帖图片</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="file" id="fileInput">
+        <button type="submit">上传</button>
+    </form>
+    
+    <div id="image-container">
+        <div id="original-image">
+            <h2>原始图片：</h2>
+            <img id="originalImg" src="{{ url_for('static', filename='images/img1.png') }}" alt="Original Image">
+        </div>
+        <div id="result-image">
+            <h2>处理结果：</h2>
+            <img id="resultImg" src="{{ url_for('static', filename='images/img2.png') }}" alt="Processed Result">
+        </div>
+    </div>
+
+    <div id="cropped-images">
+        <h2>裁剪后的汉字图片：</h2>
+        <p id="segmentedCount">分割了<span id="count">0</span>张汉字图片</p>
+        <button id="downloadImagesBtn">下载所有图片</button>
+    </div>
+
+    <script>
+
+
+        document.getElementById('downloadImagesBtn').addEventListener('click', function() {
+            // 获取所有分割图像的路径
+            var segmentedImages = document.querySelectorAll('#cropped-images img');
+
+            // 创建一个临时的锚点元素（隐藏的）用于下载
+            var downloadLink = document.createElement('a');
+            downloadLink.style.display = 'none';
+            document.body.appendChild(downloadLink);
+
+            // 循环处理每个分割图像并触发下载
+            segmentedImages.forEach(function(img) {
+                // 提取图像源URL
+                var imgUrl = img.src;
+                // 根据时间戳创建唯一的文件名
+                var fileName = 'segmented_image_' + new Date().getTime() + '.png';
+
+                // 使用锚点元素来启动下载
+                downloadLink.href = imgUrl;
+                downloadLink.download = fileName;
+                downloadLink.click();
+            });
+
+            // 清理：移除临时的锚点元素
+            document.body.removeChild(downloadLink);
+        });
+
+        document.getElementById('logoutButton').addEventListener('click', function() {
+            fetch('/logout')
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = '/'; 
+                } else {
+                    throw new Error('退出登录失败');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('退出登录失败，请重试。');
+            });
+        });
+
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData();
+            formData.append('file', document.getElementById('fileInput').files[0]);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('originalImg').src = '/static/uploads/' + document.getElementById('fileInput').files[0].name;
+                    document.getElementById('resultImg').src = '/result/temp_output.jpg' + '?' + new Date().getTime();
+
+                    var imagesPerRow = 15;
+                    var currentRow = null;
+
+                    var croppedImagesContainer = document.getElementById('cropped-images');
+                    croppedImagesContainer.querySelectorAll('img').forEach(img => img.remove());
+
+                    var segmentedCount = data.cropped_files_list.length;
+                    document.getElementById('count').textContent = segmentedCount;
+
+                    data.cropped_files_list.forEach(function(croppedImagePath, index) {
+                        // console.log(data.cropped_files_list)
+                        var imgElement = document.createElement('img');
+                        let extractedPath = croppedImagePath.substring(croppedImagePath.indexOf('static'));
+                        imgElement.src = extractedPath + '?' + new Date().getTime();
+                        imgElement.style.maxWidth = '100px';
+                        imgElement.style.margin = '5px';
+
+                        if (index % imagesPerRow === 0) {
+                            currentRow = document.createElement('div');
+                            currentRow.classList.add('image-row');
+                            croppedImagesContainer.appendChild(currentRow);
+                        }
+
+                        currentRow.appendChild(imgElement);
+                    });
+                } else {
+                    alert('预测失败，请重试：' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('预测失败，请重试。');
+            });
+        });
+    </script>
+
+</body>
+</html>

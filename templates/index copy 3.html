@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片预测</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+        #image-container {
+            display: flex;
+            justify-content: space-around;
+            width: 80%;
+            margin-top: 20px;
+        }
+        img {
+            max-width: 400px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>上传图片进行预测</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="file" id="fileInput">
+        <button type="submit">上传</button>
+    </form>
+    <div id="image-container">
+        <div id="original-image">
+            <h2>原始图片</h2>
+            <img id="originalImg" src="" alt="Original Image">
+        </div>
+        <div id="result-image">
+            <h2>处理结果</h2>
+            <img id="resultImg" src="" alt="Processed Result">
+        </div>
+    </div>
+
+    <!-- 在页面中添加用于显示裁剪后图片的区域 -->
+    <div id="cropped-images">
+        <h2>裁剪后的图片</h2>
+    </div>
+
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData();
+            formData.append('file', document.getElementById('fileInput').files[0]);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('originalImg').src = '/static/uploads/' + document.getElementById('fileInput').files[0].name;
+                    // document.getElementById('resultImg').src = data.result;
+                    document.getElementById('resultImg').src = '/result/temp_output.jpg'+'?' + new Date().getTime();
+
+                    console.log(data)
+                    console.log(data.result)
+                    console.log(data.result)
+
+                    
+                    // 定义每行显示的图片数量
+                    var imagesPerRow = 10;
+                    var currentRow = null;
+                    
+                    // 获取裁剪后的图片列表
+                    var croppedImagesContainer = document.getElementById('cropped-images');
+                    // 清空容器中的所有图片元素，但保留标题
+                    croppedImagesContainer.querySelectorAll('img').forEach(img => img.remove());
+
+                    // 遍历裁剪后的图片列表
+                    data.cropped_files_list.forEach(function(croppedImagePath, index) {
+                        // 创建图片元素
+                        var imgElement = document.createElement('img');
+                        let extractedPath = croppedImagePath.substring(croppedImagePath.indexOf('static'));
+                        imgElement.src = extractedPath + '?' + new Date().getTime();
+                        imgElement.style.maxWidth = '100px'; // 控制图片宽度
+                        imgElement.style.margin = '5px'; // 控制图片间距
+
+                        // 每行第一个图片，创建新的行容器
+                        if (index % imagesPerRow === 0) {
+                            currentRow = document.createElement('div');
+                            currentRow.classList.add('image-row'); // 可选：添加样式类
+                            croppedImagesContainer.appendChild(currentRow);
+                        }
+
+                        // 将图片添加到当前行容器中
+                        currentRow.appendChild(imgElement);
+                    });
+                }  else {
+                    alert('预测失败，请重试：' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('预测失败，请重试。');
+            });
+        });
+    </script>
+</body>
+</html>

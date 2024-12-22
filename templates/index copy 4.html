@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汉字字帖分割系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            position: relative; /* 设置 body 为相对定位，用于绝对定位按钮 */
+        }
+        #logoutButton {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+        #image-container {
+            display: flex;
+            justify-content: space-around;
+            width: 80%;
+            margin-top: 20px;
+        }
+        img {
+            max-width: 400px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- 添加退出登录按钮 -->
+    <button id="logoutButton">退出登录</button>
+
+    <h1>请上传字帖图片进行分割</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="file" id="fileInput">
+        <button type="submit">上传</button>
+    </form>
+    <div id="image-container">
+        <div id="original-image">
+            <h2>原始图片</h2>
+            <img id="originalImg" src="" alt="Original Image">
+        </div>
+        <div id="result-image">
+            <h2>处理结果</h2>
+            <img id="resultImg" src="" alt="Processed Result">
+        </div>
+    </div>
+
+    <!-- 在页面中添加用于显示裁剪后图片的区域 -->
+    <div id="cropped-images">
+        <h2>裁剪后的汉字图片</h2>
+    </div>
+
+    <script>
+        document.getElementById('logoutButton').addEventListener('click', function() {
+            fetch('/logout')
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = '/'; // 重定向到登录页面的 URL
+                } else {
+                    throw new Error('退出登录失败');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('退出登录失败，请重试。');
+            });
+        });
+
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData();
+            formData.append('file', document.getElementById('fileInput').files[0]);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('originalImg').src = '/static/uploads/' + document.getElementById('fileInput').files[0].name;
+                    document.getElementById('resultImg').src = '/result/temp_output.jpg' + '?' + new Date().getTime();
+
+                    var imagesPerRow = 10;
+                    var currentRow = null;
+
+                    var croppedImagesContainer = document.getElementById('cropped-images');
+                    croppedImagesContainer.querySelectorAll('img').forEach(img => img.remove());
+
+                    data.cropped_files_list.forEach(function(croppedImagePath, index) {
+                        var imgElement = document.createElement('img');
+                        let extractedPath = croppedImagePath.substring(croppedImagePath.indexOf('static'));
+                        imgElement.src = extractedPath + '?' + new Date().getTime();
+                        imgElement.style.maxWidth = '100px';
+                        imgElement.style.margin = '5px';
+
+                        if (index % imagesPerRow === 0) {
+                            currentRow = document.createElement('div');
+                            currentRow.classList.add('image-row');
+                            croppedImagesContainer.appendChild(currentRow);
+                        }
+
+                        currentRow.appendChild(imgElement);
+                    });
+                } else {
+                    alert('预测失败，请重试：' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('预测失败，请重试。');
+            });
+        });
+    </script>
+</body>
+</html>
